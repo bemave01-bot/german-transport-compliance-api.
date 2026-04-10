@@ -1,100 +1,80 @@
-from fastapi import FastAPI, Query
-from datetime import datetime
+from fastapi import FastAPI, HTTPException, Header
+from typing import Optional
 
-description = """
-## Professional Transport Compliance API (NL-DE-AT) 2026
+app = FastAPI()
 
-### ⚠️ LEGAL DISCLAIMER & TERMS OF USE
-**Use of this API constitutes acceptance of the following terms:**
-1. **No Liability:** The provider is NOT responsible for financial losses or operational errors.
-2. **Estimates Only:** Rates are 2026 projections and subject to change.
-3. **Data Verification:** Users must verify data with official sources (ASFINAG, Toll Collect, etc.).
+# Dit is je geheime sleutel. Alleen ZylaLabs en jij weten dit.
+API_SECRET_KEY = "TransitIntegrity_Secret_2026"
 
----
-### Features:
-* **Dynamic Localization:** Automatic switching between Dutch and German based on the requested country.
-* **Toll & Fuel:** Integrated calculations for the NL-DE-AT corridor.
-"""
+def verify_key(x_api_key: Optional[str]):
+    if x_api_key != API_SECRET_KEY:
+        raise HTTPException(
+            status_code=401, 
+            detail="Unauthorized: Invalid or missing API Key. Access the API via ZylaLabs."
+        )
 
-app = FastAPI(
-    title="Transport Compliance Pro API",
-    description=description,
-    version="1.4.0"
-)
+@app.get("/")
+async def root():
+    return {"message": "Transport Compliance API is running. Access via ZylaLabs recommended."}
 
-# Definieer de talen en termen per land
-LOCALIZATION = {
-    "NL": {
-        "lang_name": "Nederlands",
-        "msg": "Berekening op basis van Nederlandse wetgeving.",
-        "disclaimer": "DISCLAIMER: Dit zijn ramingen. Wij zijn niet aansprakelijk voor fouten.",
-        "terms": {"net": "Netto", "gross": "Bruto", "vat": "BTW"}
-    },
-    "DE": {
-        "lang_name": "Deutsch",
-        "msg": "Berechnung auf Basis deutscher Gesetzgebung (BFStrMG).",
-        "disclaimer": "RECHTLICHER HINWEIS: Dies sind Schätzungen. Wir haften nicht für Fehler.",
-        "terms": {"net": "Netto", "gross": "Bruto", "vat": "MwSt"}
-    },
-    "AT": {
-        "lang_name": "Deutsch",
-        "msg": "Berechnung auf Basis österreichischer Gesetzgebung (ASFINAG).",
-        "disclaimer": "RECHTLICHER HINWEIS: Dies sind Schätzungen. Wir haften nicht für Fehler.",
-        "terms": {"net": "Netto", "gross": "Bruto", "vat": "MwSt"}
-    }
-}
-
-@app.get("/transport/fuel-compliance", tags=["Energy & Compliance"])
-async def get_fuel(country: str = Query("NL", description="Country code (NL, DE, AT) determines the language of the output.")):
-    """Outputs data in Dutch for NL, and German for DE/AT."""
+@app.get("/transport/fuel-compliance")
+async def get_fuel_compliance(country: str, x_api_key: Optional[str] = Header(None)):
+    # Controleer de beveiligingssleutel
+    verify_key(x_api_key)
+    
     country = country.upper()
-    # Pak de NL settings als het land niet wordt herkend
-    conf = LOCALIZATION.get(country, LOCALIZATION["NL"])
-    t = conf["terms"]
-    
-    # Prijs ramingen
-    price = 1.55 if country == "NL" else (1.47 if country == "DE" else 1.42)
-    btw_rate = 0.21 if country == "NL" else (0.19 if country == "DE" else 0.20)
-
-    return {
-        "compliance_header": {
-            "country_selected": country,
-            "language": conf["lang_name"],
-            "local_message": conf["msg"],
-            "legal_notice": conf["disclaimer"]
-        },
-        "pricing_details": {
-            "fuel_type": "Diesel",
-            f"{t['net']}_EUR": price,
-            f"{t['vat']}_EUR": round(price * btw_rate, 3),
-            f"{t['gross']}_EUR": round(price * (1 + btw_rate), 3)
+    if country == "NL":
+        return {
+            "status": "success",
+            "country": "NL",
+            "data": {
+                "diesel_price": "€1.79",
+                "hvo100_price": "€2.15",
+                "adblue_price": "€0.85",
+                "vat_rate": "21%",
+                "disclaimer": "Berekening op basis van Nederlandse wetgeving 2026."
+            }
         }
-    }
+    elif country == "DE":
+        return {
+            "status": "success",
+            "country": "DE",
+            "data": {
+                "diesel_price": "€1.65",
+                "adblue_price": "€0.75",
+                "co2_tax": "€0.12 per liter",
+                "vat_rate": "19%"
+            }
+        }
+    elif country == "AT":
+        return {
+            "status": "success",
+            "country": "AT",
+            "data": {
+                "diesel_price": "€1.68",
+                "vat_rate": "20%",
+                "note": "Inclusief Oostenrijkse CO2-beprijzing."
+            }
+        }
+    else:
+        raise HTTPException(status_code=404, detail="Country not supported. Use NL, DE or AT.")
 
-@app.get("/transport/toll-calculator", tags=["Toll & Infrastructure"])
-async def get_toll(
-    country: str = Query(..., description="Select NL, DE, or AT"),
-    distance_km: float = Query(..., example=100.0)
-):
-    """Automatic language switching for toll results."""
+@app.get("/transport/toll-calculator")
+async def calculate_toll(country: str, distance_km: float, x_api_key: Optional[str] = Header(None)):
+    # Controleer de beveiligingssleutel
+    verify_key(x_api_key)
+    
     country = country.upper()
-    conf = LOCALIZATION.get(country, LOCALIZATION["DE"])
-    t = conf["terms"]
+    rates = {"NL": 0.15, "DE": 0.35, "AT": 0.25}
     
-    # Tarief logica
-    rate = 14.9 if country == "NL" else (34.8 if country == "DE" else 52.4)
-    net_toll = (distance_km * rate) / 100
-    btw_rate = 0.21 if country == "NL" else (0.19 if country == "DE" else 0.20)
+    if country not in rates:
+        raise HTTPException(status_code=404, detail="Country not supported for toll.")
     
+    total_cost = round(distance_km * rates[country], 2)
     return {
-        "legal": {
-            "disclaimer": conf["disclaimer"],
-            "regime_info": conf["msg"]
-        },
-        "calculation": {
-            "distance": f"{distance_km} km",
-            f"Totaal_{t['net']}": round(net_toll, 2),
-            f"Totaal_{t['gross']}": round(net_toll * (1 + btw_rate), 2),
-            "tarief_cent_km": rate
-        }
+        "status": "success",
+        "country": country,
+        "distance": f"{distance_km} km",
+        "total_toll_cost": f"€{total_cost}",
+        "rate_per_km": f"€{rates[country]}"
     }
