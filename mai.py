@@ -1,57 +1,73 @@
 from fastapi import FastAPI
 from datetime import datetime
 
-app = FastAPI(title="German Transport Compliance API (Incl. Historiendata)")
+app = FastAPI(title="NL-DE-AT Transport + Fuel + Toll + Compliance API")
 
-# Harde Maut Tabel 2026 (Cent per km)
-MAUT_TABLE = {
-    ">18t": {"c1": 34.8, "c2": 30.2, "c3": 25.0, "c4": 15.0, "c5": 8.7},
-    "12-18t": {"c1": 23.8, "c2": 20.0, "c3": 16.0, "c4": 10.0, "c5": 5.9},
-    "7.5-12t": {"c1": 21.0, "c2": 18.2, "c3": 14.5, "c4": 9.2, "c5": 5.1},
-    "3.5-7.5t": {"c1": 15.1, "c2": 12.0, "c3": 9.0, "c4": 5.0, "c5": 0.0}
+# Fiscale instellingen
+COUNTRIES = {
+    "NL": {"btw": 0.21, "co2_tax_ton": 60, "maut_name": "Vrachtwagenheffing"},
+    "DE": {"btw": 0.19, "co2_tax_ton": 55, "maut_name": "LKW-Maut (BFStrMG)"},
+    "AT": {"btw": 0.20, "co2_tax_ton": 47.5, "maut_name": "GO-Maut (ASFINAG)"}
 }
 
-FUEL_DATA = {
-    "diesel": {"netto_26": 1.47, "netto_25": 1.39, "co2": 2.64},
-    "hvo100": {"netto_26": 1.81, "netto_25": 1.75, "co2": 0.25},
-    "super_e10": {"netto_26": 1.54, "netto_25": 1.48, "co2": 2.31},
-    "super_e5": {"netto_26": 1.59, "netto_25": 1.53, "co2": 2.39},
-    "lpg": {"netto_26": 0.61, "netto_25": 0.58, "co2": 1.61},
-    "adblue": {"netto_26": 0.71, "netto_25": 0.68, "co2": 0.0}
+# Specifieke Tarieven per land (Cent per KM)
+MAUT_DATA = {
+    "NL": { # Gebaseerd op Euro 6 (meest voorkomend)
+        ">12t": 14.9, 
+        "3.5-12t": 8.3
+    },
+    "DE": { # Gewichten + CO2-Klassen
+        ">18t": {"c1": 34.8, "c2": 30.2, "c3": 25.0, "c4": 15.0, "c5": 8.7},
+        "12-18t": {"c1": 23.8, "c2": 20.0, "c3": 16.0, "c4": 10.0, "c5": 5.9},
+        "3.5-12t": {"c1": 15.1, "c2": 12.0, "c3": 9.0, "c4": 5.0, "c5": 0.0}
+    },
+    "AT": { # Assen-logica (Tarief per as-groep)
+        "4+ assen": {"c1": 52.4, "c5": 12.5},
+        "3 assen": {"c1": 38.2, "c5": 9.2},
+        "2 assen": {"c1": 25.1, "c5": 6.1}
+    }
 }
 
 @app.get("/transport/fuel-compliance")
-async def fuel_compliance():
-    results = {}
-    for fuel, data in FUEL_DATA.items():
-        results[fuel] = {
-            "2026_netto": data["netto_26"],
-            "2026_bruto": round(data["netto_26"] * 1.19, 3),
-            "2025_netto_avg": data["netto_25"],
-            "diff_percent": round(((data["netto_26"] / data["netto_25"]) - 1) * 100, 2),
-            "co2_kg_liter": data["co2"],
-            "co2_tax_2026": "55 EUR/t",
-            "co2_tax_2025": "45 EUR/t"
-        }
-    return {"status": "OK", "timestamp": datetime.now(), "data": results}
+async def get_fuel(land: str = "NL"):
+    land = land.upper()
+    c = COUNTRIES.get(land, COUNTRIES["NL"])
+    prices = {
+        "diesel": 1.55 if land == "NL" else (1.47 if land == "DE" else 1.42),
+        "hvo100": 1.95 if land == "NL" else 1.81,
+        "super_e10": 1.68 if land == "NL" else 1.54,
+        "super_e5": 1.75 if land == "NL" else 1.59,
+        "lpg": 0.65 if land == "NL" else 0.61,
+        "adblue": 0.75
+    }
+    return {
+        "meta": {"country": land, "btw": f"{c['btw']*100}%"},
+        "fuels": {k: {"netto": v, "bruto": round(v * (1 + c['btw']), 3)} for k, v in prices.items()}
+    }
 
 @app.get("/transport/maut-calculator")
-async def calculate_maut(km: float, weight_class: str, co2_class: int):
-    # Mapping input naar tabel
-    key = f"c{co2_class}"
-    base_rate = MAUT_TABLE.get(weight_class, MAUT_TABLE[">18t"]).get(key, 34.8)
+async def get_maut(land: str, km: float, gewicht_of_assen: str, co2_klasse: int = 1):
+    land = land.upper()
+    c = COUNTRIES.get(land, COUNTRIES["NL"])
     
-    netto = (km * base_rate) / 100 # Van cent naar Euro
-    bruto = netto * 1.19
+    # Selecteer juiste tarief op basis van land-logica
+    if land == "NL":
+        tarief = MAUT_DATA["NL"].get(gewicht_of_assen, 14.9)
+    elif land == "AT":
+        tarief = MAUT_DATA["AT"].get(gewicht_of_assen, MAUT_DATA["AT"]["4+ assen"]).get(f"c{co2_klasse}", 52.4)
+    else: # Duitsland
+        tarief = MAUT_DATA["DE"].get(gewicht_of_assen, MAUT_DATA["DE"][">18t"]).get(f"c{co2_klasse}", 34.8)
+    
+    netto = (km * tarief) / 100
+    bruto = netto * (1 + c['btw'])
     
     return {
-        "calculation": {
-            "distance_km": km,
-            "weight": weight_class,
-            "co2_class": co2_class,
-            "eur_netto": round(netto, 2),
-            "eur_bruto": round(bruto, 2),
-            "rate_per_km_cent": base_rate
-        },
-        "legal": "BFStrMG § 2026 / German Toll Law"
+        "regime": c['maut_name'],
+        "config": {"land": land, "unit": gewicht_of_assen, "co2_klasse": co2_klasse},
+        "kosten": {
+            "netto_eur": round(netto, 2),
+            "btw_eur": round(bruto - netto, 2),
+            "bruto_eur": round(bruto, 2),
+            "cent_per_km": tarief
+        }
     }
