@@ -1,5 +1,20 @@
+import os
+import requests
+from bs4 import BeautifulSoup
+from fastapi import FastAPI
+from datetime import datetime, timedelta
+
+app = FastAPI()
+
+# Tijdelijk geheugen (Cache)
+cache = {
+    "NL": {"price": 2.785, "time": None}, 
+    "DE": {"price": 1.950, "time": None},
+    "AT": {"price": 1.890, "time": None}
+}
+
 def get_nl_gla():
-    """Haalt de actuele GLA op en zorgt dat we altijd de laatste prijs hebben."""
+    """Haalt de actuele GLA op van UnitedConsumers."""
     try:
         url = "https://www.unitedconsumers.com/tanken/informatie/brandstofprijzen"
         headers = {
@@ -8,27 +23,50 @@ def get_nl_gla():
         res = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # We zoeken de tabel en pakken de prijs die bij Diesel hoort
-        # UnitedConsumers gebruikt vaak specifieke classes, we zoeken op de tekst 'Diesel'
+        # Zoek de cel die 'Diesel' bevat
         td_diesel = soup.find('td', string=lambda t: t and 'Diesel' in t)
         if td_diesel:
             price_row = td_diesel.find_next_sibling('td')
+            # Maak het getal schoon (verwijder € en verander , in .)
             price_str = price_row.text.replace('€', '').replace(',', '.').strip()
             return float(price_str)
         return cache["NL"]["price"]
     except Exception as e:
-        print(f"Fout bij ophalen: {e}")
+        print(f"Fout bij ophalen NL data: {e}")
         return cache["NL"]["price"]
 
-# In de API route passen we de ververs-tijd aan naar 1 uur (of zelfs korter)
 @app.get("/")
 def read_root(country: str = "NL", fuel_type: str = "diesel"):
     country = country.upper()
+    
+    # Zorg dat we een geldige landcode hebben, anders default naar NL
+    if country not in cache:
+        country = "NL"
+        
     now = datetime.now()
 
-    # Ververs nu elk uur (3600 seconden) voor maximale scherpte
+    # Ververs de prijs als er meer dan 1 uur voorbij is
     if not cache[country]["time"] or now > cache[country]["time"] + timedelta(hours=1):
         if country == "NL":
             new_price = get_nl_gla()
             cache[country]["price"] = new_price
+        # (Hier kunnen later DE en AT scrapers tussen)
         cache[country]["time"] = now
+
+    current_price = cache[country]["price"]
+    
+    return {
+        "compliance_header": {
+            "country_selected": country,
+            "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "data_source": "National Fuel Index (GLA / MTS-K)"
+        },
+        "fuel_data": {
+            "fuel_type": fuel_type,
+            "unit": "EUR/L",
+            "net_price": round(current_price / 1.21, 3),
+            "vat_rate": "21%",
+            "gross_price": current_price
+        },
+        "legal_notice": "Estimates based on daily advisory prices. No liability for errors."
+    }
