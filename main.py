@@ -35,7 +35,7 @@ def get_nl_gla():
         print(f"Fout bij ophalen NL data: {e}")
         return cache["NL"]["price"]
 
-@app.get("/")
+@app.get("/transport/fuel-compliance")
 def read_root(country: str = "NL", fuel_type: str = "diesel"):
     country = country.upper()
     
