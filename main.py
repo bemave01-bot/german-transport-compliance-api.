@@ -1,60 +1,34 @@
-import os
-import requests
-from bs4 import BeautifulSoup
-from fastapi import FastAPI
-from datetime import datetime, timedelta
-
-app = FastAPI()
-
-# Tijdelijk geheugen om bronnen niet te overbelasten
-cache = {
-    "NL": {"price": 2.785, "time": None}, # Default waarde mocht scrape mislukken
-    "DE": {"price": 1.950, "time": None},
-    "AT": {"price": 1.890, "time": None}
-}
-
 def get_nl_gla():
-    """Haalt de actuele Landelijke Adviesprijs op van UnitedConsumers"""
+    """Haalt de actuele GLA op en zorgt dat we altijd de laatste prijs hebben."""
     try:
         url = "https://www.unitedconsumers.com/tanken/informatie/brandstofprijzen"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get(url, headers=headers, timeout=5)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        res = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # We zoeken specifiek naar de dieselprijs in de tabel
-        # Let op: dit is een versimpeld voorbeeld van de selector
-        diesel_row = soup.find("td", text="Diesel").find_next_sibling("td")
-        price_str = diesel_row.text.replace('€', '').replace(',', '.').strip()
-        return float(price_str)
-    except:
-        return cache["NL"]["price"] # Terugval op laatste bekende prijs
+        # We zoeken de tabel en pakken de prijs die bij Diesel hoort
+        # UnitedConsumers gebruikt vaak specifieke classes, we zoeken op de tekst 'Diesel'
+        td_diesel = soup.find('td', string=lambda t: t and 'Diesel' in t)
+        if td_diesel:
+            price_row = td_diesel.find_next_sibling('td')
+            price_str = price_row.text.replace('€', '').replace(',', '.').strip()
+            return float(price_str)
+        return cache["NL"]["price"]
+    except Exception as e:
+        print(f"Fout bij ophalen: {e}")
+        return cache["NL"]["price"]
 
+# In de API route passen we de ververs-tijd aan naar 1 uur (of zelfs korter)
 @app.get("/")
 def read_root(country: str = "NL", fuel_type: str = "diesel"):
     country = country.upper()
     now = datetime.now()
 
-    # Check of we de prijs moeten verversen (elke 6 uur)
-    if not cache[country]["time"] or now > cache[country]["time"] + timedelta(hours=6):
+    # Ververs nu elk uur (3600 seconden) voor maximale scherpte
+    if not cache[country]["time"] or now > cache[country]["time"] + timedelta(hours=1):
         if country == "NL":
-            cache[country]["price"] = get_nl_gla()
-        # Voor DE en AT kunnen we later specifieke API-koppelingen toevoegen
+            new_price = get_nl_gla()
+            cache[country]["price"] = new_price
         cache[country]["time"] = now
-
-    current_price = cache[country]["price"]
-    
-    return {
-        "compliance_header": {
-            "country_selected": country,
-            "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "data_source": "Official National Index (GLA/MTS-K)"
-        },
-        "fuel_data": {
-            "fuel_type": fuel_type,
-            "unit": "EUR/L",
-            "net_price": round(current_price / 1.21, 3),
-            "vat_rate": "21%",
-            "gross_price": current_price
-        },
-        "legal_notice": "Estimates only. Verify with official sources before billing."
-    }
