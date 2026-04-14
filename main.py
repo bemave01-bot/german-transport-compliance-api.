@@ -52,14 +52,18 @@ TRANSLATIONS = {
 }
 
 # --- 2. FISCALE & INFRASTRUCTUUR DATA 2026 ---
+# Huidige datum voor automatische omschakeling
+CURRENT_DATE = datetime.now()
+NL_START_DATE = datetime(2026, 7, 1)
+
 COUNTRY_DATA = {
     "NL": {
         "vat": 1.21, "excise": 0.552, "co2_tax": 0.000, "cache": 720,
         "fuel_src": "United Consumers (GLA)", "toll_sys": "Vrachtwagenheffing",
         "legal": "Wet Vrachtwagenheffing 2026, EU 2022/362",
         "rates": {
-            "heavy": {"CO2_1": 0.201, "CO2_2": 0.183, "CO2_5": 0.038}, # >32t
-            "mid": {"CO2_1": 0.182, "CO2_2": 0.165, "CO2_5": 0.037}    # 18-32t
+            "heavy": {"CO2_1": 0.201, "CO2_2": 0.183, "CO2_3": 0.165, "CO2_4": 0.105, "CO2_5": 0.038},
+            "mid": {"CO2_1": 0.182, "CO2_2": 0.165, "CO2_3": 0.148, "CO2_4": 0.095, "CO2_5": 0.037}
         }
     },
     "DE": {
@@ -67,8 +71,8 @@ COUNTRY_DATA = {
         "fuel_src": "MTS-K / Bundeskartellamt", "toll_sys": "LKW-Maut (Toll Collect)",
         "legal": "BFStrMG § 7, nEHS CO2-Preis Gesetz",
         "rates": {
-            "heavy": {"CO2_1": 0.348, "CO2_2": 0.332, "CO2_5": 0.000}, # >18t
-            "mid": {"CO2_1": 0.302, "CO2_2": 0.290, "CO2_5": 0.000}    # 12-18t
+            "heavy": {"CO2_1": 0.354, "CO2_2": 0.332, "CO2_3": 0.311, "CO2_4": 0.205, "CO2_5": 0.000},
+            "mid": {"CO2_1": 0.302, "CO2_2": 0.285, "CO2_3": 0.268, "CO2_4": 0.175, "CO2_5": 0.000}
         }
     },
     "AT": {
@@ -76,8 +80,8 @@ COUNTRY_DATA = {
         "fuel_src": "E-Control Austria", "toll_sys": "GO-Maut (ASFINAG)",
         "legal": "BStMG 2026 (Bundesstraßen-Mautgesetz)",
         "rates": {
-            "cat4": {"CO2_1": 0.5724, "CO2_2": 0.5657, "CO2_5": 0.1189}, # 4+ assen
-            "cat3": {"CO2_1": 0.3842, "CO2_2": 0.3780, "CO2_5": 0.0850}  # 3 assen
+            "cat4": {"CO2_1": 0.5724, "CO2_2": 0.5657, "CO2_3": 0.5501, "CO2_4": 0.4200, "CO2_5": 0.1189},
+            "cat3": {"CO2_1": 0.3842, "CO2_2": 0.3780, "CO2_3": 0.3650, "CO2_4": 0.2800, "CO2_5": 0.0850}
         }
     }
 }
@@ -87,7 +91,6 @@ SPECIAL_FEES = {
     "DE": {"Herren_Tunnel": 16.50, "Warnow_Tunnel": 18.20, "ADR_Safety": 12.50}
 }
 
-# --- 3. DYNAMISCHE PRIJS DATA & CACHE ---
 data_store = {"NL": {"p": 2.709, "t": None}, "DE": {"p": 1.950, "t": None}, "AT": {"p": 1.890, "t": None}}
 
 def fetch_fuel(c):
@@ -104,23 +107,23 @@ def fetch_fuel(c):
 # --- 4. DE UNIVERSELE ENDPOINT ---
 @app.get("/api/v1/transport/full-audit-report")
 def get_audit_report(
-    lang: str = Query("EN", description="EN, NL, or DE"),
-    country: str = Query("NL", description="NL, DE, or AT"),
+    lang: str = Query("NL"),
+    country: str = Query("NL"),
     km: float = Query(100.0),
-    co2_class: str = Query("CO2_1", description="CO2_1 to CO2_5"),
-    axles: int = Query(5, description="Number of axles"),
-    weight_kg: int = Query(40000, description="Max technical weight (F1)"),
+    co2_class: str = Query("CO2_1"),
+    axles: int = Query(5),
+    weight_kg: int = Query(40000),
     fuel_liters: float = Query(35.0),
-    base_price_net: float = Query(1.45, description="Contractual base price for surcharge calculation"),
-    is_adr: bool = Query(False, description="Hazardous materials"),
-    special_route: str = Query(None, description="e.g., Brenner_A13, Tauern_A10")
+    base_price_net: float = Query(1.45),
+    is_adr: bool = Query(False),
+    special_route: str = Query(None)
 ):
     lang, country = lang.upper(), country.upper()
     now = datetime.now()
     comp = COUNTRY_DATA.get(country, COUNTRY_DATA["NL"])
-    str_cfg = TRANSLATIONS.get(lang if lang in TRANSLATIONS else "EN")
+    str_cfg = TRANSLATIONS.get(lang if lang in TRANSLATIONS else "NL")
     
-    # 4.1 Brandstof Update & Fiscale Splitsing
+    # 4.1 Brandstof Update
     store = data_store[country]
     if not store["t"] or now > store["t"] + timedelta(minutes=comp["cache"]):
         store["p"], store["t"] = fetch_fuel(country), now
@@ -130,22 +133,26 @@ def get_audit_report(
     net_price = round(gross_pump / comp["vat"], 3)
     pure_energy = round(net_price - comp["excise"] - comp["co2_tax"], 3)
     
-    # 4.2 Infrastructuur & Sondermaut
+    # 4.2 Infrastructuur Logica
     toll_rates = comp["rates"]
+    # Bepaal categorie op basis van gewicht of assen
     cat = "cat4" if country == "AT" and axles >= 4 else ("heavy" if weight_kg >= 18000 else "mid")
-    base_toll = round(km * toll_rates.get(cat, toll_rates["heavy"]).get(co2_class, 0.201), 2)
+    
+    # Haal het juiste tarief per km op
+    rate_per_km = toll_rates.get(cat, toll_rates["heavy"]).get(co2_class, 0.201)
+    base_toll = round(km * rate_per_km, 2)
+
+    # AUTOMATISCHE NL-CHECK: Geen tol vóór 1 juli 2026
+    if country == "NL" and CURRENT_DATE < NL_START_DATE:
+        base_toll = 0.0
     
     special_fee = SPECIAL_FEES.get(country, {}).get(special_route, 0.0) if special_route else 0.0
     adr_fee = SPECIAL_FEES.get(country, {}).get("ADR_Tunnel" if country == "AT" else "ADR_Safety", 0.0) if is_adr else 0.0
 
-    # 4.3 CSRD Emissie Berekening (ISO 14083)
+    # 4.3 Berekeningen
     scope1 = round(fuel_liters * 2.64, 2)
     scope3 = round(fuel_liters * 0.61, 2)
-
-    # 4.4 Financial Recovery & Surcharge
     vat_reclaimable = round(fuel_liters * vat_amt, 2)
-    # Netto-Netto = (Brandstof excl. BTW) - (BTW Teruggave indien buitenland) + Tol + Toeslagen
-    # In NL is BTW teruggave voor een NL bedrijf direct, voor buitenland is het een claim.
     net_net_trip = round((fuel_liters * net_price) + base_toll + special_fee + adr_fee, 2)
 
     return {
@@ -165,10 +172,6 @@ def get_audit_report(
             "fuel": {
                 "label": str_cfg["fuel"], "gross_pump": gross_pump, "net_ex_vat": net_price,
                 "excise_duty": comp["excise"], "co2_tax": comp["co2_tax"], "pure_energy_net": pure_energy
-            },
-            "surcharge_audit": {
-                "label": str_cfg["surcharge"], "contract_base": base_price_net, 
-                "current_surcharge_per_liter": round(max(0, net_price - base_price_net), 3)
             },
             "infrastructure": {
                 "label": str_cfg["toll"], "system": comp["toll_sys"], "base_toll": base_toll,
