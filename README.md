@@ -1,48 +1,30 @@
-# 🚛 Transport Compliance Pro API (NL-DE-AT) 2026
-**The definitive fiscal and operational data bridge for logistics in the Netherlands, Germany, and Austria.**
-
-[![Status](https://img.shields.io/badge/Status-Live-green.svg)](https://render.com)
-[![Compliance](https://img.shields.io/badge/Compliance-Accountant--Ready-blue.svg)](#)
-[![Year](https://img.shields.io/badge/Year-2026-orange.svg)](#)
+# 🚛 EU Transport & ESG Audit Backend (2026)
+**Core Engine for NL, DE & AT Transport Audits**
 
 ## 🌐 Overview
-The **Transport Compliance Pro API** provides logistics companies, software developers, and fleet managers with mission-critical data for the 2026 fiscal year. Operating across the NL-DE-AT corridor, this API automates the calculation of fuel costs, VAT recoveries, and complex toll regimes.
+This API serves as the calculation engine for the Apify Transport Auditor. It handles real-time fuel scraping, 2026 toll regimes, and ISO 14083 compliant CO2 reporting.
 
-### 🚀 Key Capabilities
-* **Intelligent Toll Calculation:** Support for German LKW-Maut (BFStrMG), Austrian GO-Maut (ASFINAG), and the new Dutch 'Vrachtwagenheffing' (starting July 1, 2026).
-* **Energy & Fuel Compliance:** Projected 2026 pricing for Diesel, HVO100, and AdBlue, including CO2 emission factors per liter.
-* **Automatic Localization:** The API detects the requested country and switches technical terms (Net/Gross/VAT) between **English, Dutch, and German** automatically.
-* **Accountant-Ready Data:** Every response includes VAT breakdowns and legal disclaimers to ensure financial compliance.
+### 🛠 Tech Stack
+* **Framework:** FastAPI (Python)
+* **Scraping:** BeautifulSoup4 (Live fuel prices)
+* **Deployment:** Render.com
+* **Compliance:** CSRD Scope 1 & 3, EU Directive 2022/362
 
----
+## 🚀 Active Endpoint
+### `GET /api/v1/transport/full-audit-report`
+The primary endpoint used by the Apify Actor to generate a country-specific audit.
 
-## 🛠 API Endpoints & Usage
+**Key Parameters:**
+- `country`: NL, DE, AT
+- `lang`: NL, DE, EN
+- `co2_class`: CO2_1 to CO2_5
+- `km`: Distance
+- `fuel_liters`: Consumption
 
-### 1. Fuel & Energy Compliance
-Retrieve current projections for fuel prices, including VAT and CO2-kg/l impact.
-- **Endpoint:** `/transport/fuel-compliance`
-- **Parameters:** `country` (NL, DE, AT)
-
-### 2. International Toll Calculator
-Calculate total trip costs based on vehicle weight, CO2 class, and distance.
-- **Endpoint:** `/transport/toll-calculator`
-- **Parameters:** `country`, `distance_km`, `vehicle_type`, `co2_class`
-
----
-
-## ⚖️ Legal & Disclaimer
-This API is designed for professional planning purposes. 
-* **Projections:** All rates provided are 2026 estimates based on current legislative data.
-* **Liability:** The provider is not liable for operational losses, fines, or fiscal discrepancies. 
-* **Verification:** Users are encouraged to cross-reference data with official governmental portals for final audit purposes.
+## 📅 2026 Roadmap Logic
+* **NL Vrachtwagenheffing:** Automatically switches from €0.00 to official km-rates on **July 1st, 2026**.
+* **DE Maut:** Uses 2026 CO2-weighted rates (>18t / 12-18t).
+* **AT GO-Maut:** Includes 2026 ASFINAG category rates.
 
 ---
-
-## 📈 Getting Started
-To integrate this API into your TMS (Transport Management System) or ERP:
-1. Access the Interactive Documentation at: `https://[YOUR-RENDER-URL].onrender.com/docs`
-2. Use the **Try it out** feature to test live requests.
-3. For commercial licenses and high-volume API keys, contact us via ZylaLabs.
-
----
-© 2026 Transport Compliance Solutions | Powered by FastAPI
+© 2026 [Jouw Bedrijfsnaam] | Audit-Ready Logistics Data
