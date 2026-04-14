@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 app = FastAPI(title="TransitIntegrity Global Audit API 2026")
 
-# --- 1. MEERTALIGE COMPLIANCE & UITLEG ENGINE ---
+# --- 1. MEERTALIGE COMPLIANCE ENGINE ---
 TRANSLATIONS = {
     "EN": {
         "toll": "Infrastructure Usage Fee (Toll)", "fuel": "Energy Cost (Diesel/HVO)", 
@@ -52,7 +52,6 @@ TRANSLATIONS = {
 }
 
 # --- 2. FISCALE & INFRASTRUCTUUR DATA 2026 ---
-# Huidige datum voor automatische omschakeling
 CURRENT_DATE = datetime.now()
 NL_START_DATE = datetime(2026, 7, 1)
 
@@ -77,7 +76,7 @@ COUNTRY_DATA = {
     },
     "AT": {
         "vat": 1.20, "excise": 0.397, "co2_tax": 0.152, "cache": 45,
-        "fuel_src": "E-Control Austria", "toll_sys": "GO-Maut (ASFINAG)",
+        "fuel_src": "E-Control Austria (Simulated)", "toll_sys": "GO-Maut (ASFINAG)",
         "legal": "BStMG 2026 (Bundesstraßen-Mautgesetz)",
         "rates": {
             "cat4": {"CO2_1": 0.5724, "CO2_2": 0.5657, "CO2_3": 0.5501, "CO2_4": 0.4200, "CO2_5": 0.1189},
@@ -95,98 +94,73 @@ data_store = {"NL": {"p": 2.709, "t": None}, "DE": {"p": 1.950, "t": None}, "AT"
 
 def fetch_fuel(c):
     try:
-        if c == "NL": res = requests.get("https://www.unitedconsumers.com/tanken/informatie/brandstofprijzen", timeout=5)
-        elif c == "DE": res = requests.get("https://www.clever-tanken.de/statistik/historie/diesel", headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
-        elif c == "AT": res = requests.get("https://www.spritpreisrechner.at/ts/gas-station-search-by-address?gasType=DIE&latitude=48.2&longitude=16.3", timeout=5)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        if c == "NL": return float(soup.find('td', string=lambda t: t and 'Diesel' in t).find_next_sibling('td').text.replace('€', '').replace(',', '.').strip())
-        if c == "DE": return float(soup.select_one('.price').text.replace(',', '.').strip())
-        if c == "AT": return float(res.json()[0]['prices'][0]['amount'])
-    except: return data_store[c]["p"]
+        # Robuuste check: Alleen NL en DE live, AT valt terug op betrouwbare fallback
+        if c == "NL": 
+            res = requests.get("https://www.unitedconsumers.com/tanken/informatie/brandstofprijzen", timeout=5)
+            soup = BeautifulSoup(res.text, 'lxml')
+            return float(soup.find('td', string=lambda t: t and 'Diesel' in t).find_next_sibling('td').text.replace('€', '').replace(',', '.').strip())
+        elif c == "DE": 
+            res = requests.get("https://www.clever-tanken.de/statistik/historie/diesel", headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
+            soup = BeautifulSoup(res.text, 'lxml')
+            return float(soup.select_one('.price').text.replace(',', '.').strip())
+        return data_store[c]["p"]
+    except Exception: 
+        return data_store[c]["p"]
 
-# --- 4. DE UNIVERSELE ENDPOINT ---
 @app.get("/api/v1/transport/full-audit-report")
 def get_audit_report(
-    lang: str = Query("NL"),
-    country: str = Query("NL"),
-    km: float = Query(100.0),
-    co2_class: str = Query("CO2_1"),
-    axles: int = Query(5),
-    weight_kg: int = Query(40000),
-    fuel_liters: float = Query(35.0),
-    base_price_net: float = Query(1.45),
-    is_adr: bool = Query(False),
-    special_route: str = Query(None)
+    lang: str = Query("NL"), country: str = Query("NL"), km: float = Query(100.0),
+    co2_class: str = Query("CO2_1"), axles: int = Query(5), weight_kg: int = Query(40000),
+    fuel_liters: float = Query(35.0), base_price_net: float = Query(1.45),
+    is_adr: bool = Query(False), special_route: str = Query(None)
 ):
-    lang, country = lang.upper(), country.upper()
-    now = datetime.now()
-    comp = COUNTRY_DATA.get(country, COUNTRY_DATA["NL"])
-    str_cfg = TRANSLATIONS.get(lang if lang in TRANSLATIONS else "NL")
-    
-    # 4.1 Brandstof Update
-    store = data_store[country]
-    if not store["t"] or now > store["t"] + timedelta(minutes=comp["cache"]):
-        store["p"], store["t"] = fetch_fuel(country), now
-    
-    gross_pump = store["p"]
-    vat_amt = round(gross_pump - (gross_pump / comp["vat"]), 3)
-    net_price = round(gross_pump / comp["vat"], 3)
-    pure_energy = round(net_price - comp["excise"] - comp["co2_tax"], 3)
-    
-    # 4.2 Infrastructuur Logica
-    toll_rates = comp["rates"]
-    # Bepaal categorie op basis van gewicht of assen
-    cat = "cat4" if country == "AT" and axles >= 4 else ("heavy" if weight_kg >= 18000 else "mid")
-    
-    # Haal het juiste tarief per km op
-    rate_per_km = toll_rates.get(cat, toll_rates["heavy"]).get(co2_class, 0.201)
-    base_toll = round(km * rate_per_km, 2)
+    try:
+        lang, country = lang.upper(), country.upper()
+        now = datetime.now()
+        comp = COUNTRY_DATA.get(country, COUNTRY_DATA["NL"])
+        str_cfg = TRANSLATIONS.get(lang if lang in TRANSLATIONS else "NL")
+        
+        store = data_store.get(country, data_store["NL"])
+        if not store["t"] or now > store["t"] + timedelta(minutes=comp["cache"]):
+            store["p"], store["t"] = fetch_fuel(country), now
+        
+        gross_pump = store["p"]
+        vat_amt = round(gross_pump - (gross_pump / comp["vat"]), 3)
+        net_price = round(gross_pump / comp["vat"]), 3
+        pure_energy = round(net_price[0] - comp["excise"] - comp["co2_tax"], 3)
+        
+        toll_rates = comp["rates"]
+        cat = "cat4" if country == "AT" and axles >= 4 else ("heavy" if weight_kg >= 18000 else "mid")
+        rate_per_km = toll_rates.get(cat, toll_rates.get("heavy", toll_rates.get("cat4"))).get(co2_class, 0.201)
+        base_toll = round(km * rate_per_km, 2)
 
-    # AUTOMATISCHE NL-CHECK: Geen tol vóór 1 juli 2026
-    if country == "NL" and CURRENT_DATE < NL_START_DATE:
-        base_toll = 0.0
-    
-    special_fee = SPECIAL_FEES.get(country, {}).get(special_route, 0.0) if special_route else 0.0
-    adr_fee = SPECIAL_FEES.get(country, {}).get("ADR_Tunnel" if country == "AT" else "ADR_Safety", 0.0) if is_adr else 0.0
+        if country == "NL" and now < NL_START_DATE:
+            base_toll = 0.0
+        
+        special_fee = SPECIAL_FEES.get(country, {}).get(special_route, 0.0) if special_route else 0.0
+        adr_fee = SPECIAL_FEES.get(country, {}).get("ADR_Tunnel" if country == "AT" else "ADR_Safety", 0.0) if is_adr else 0.0
 
-    # 4.3 Berekeningen
-    scope1 = round(fuel_liters * 2.64, 2)
-    scope3 = round(fuel_liters * 0.61, 2)
-    vat_reclaimable = round(fuel_liters * vat_amt, 2)
-    net_net_trip = round((fuel_liters * net_price) + base_toll + special_fee + adr_fee, 2)
+        scope1 = round(fuel_liters * 2.64, 2)
+        scope3 = round(fuel_liters * 0.61, 2)
+        vat_reclaimable = round(fuel_liters * vat_amt, 2)
+        net_net_trip = round((fuel_liters * net_price[0]) + base_toll + special_fee + adr_fee, 2)
 
-    return {
-        "audit_metadata": {
-            "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "compliance_certification": "ISO 14083, CSRD, ViDA & EU-Maut-Ready",
-            "explanation": str_cfg["audit_note"]
-        },
-        "compliance_methodology": {
-            "fuel_pricing": {"method": str_cfg["fuel_desc"], "source": comp["fuel_src"]},
-            "infrastructure_toll": {"method": str_cfg["toll_desc"], "statutory_basis": comp["legal"]},
-            "sustainability_reporting": {"method": str_cfg["csrd_desc"], "standard": "ISO 14083 / GHG Protocol"},
-            "taxation_recovery": {"method": str_cfg["tax_desc"], "vat_regime": f"{(comp['vat']-1)*100:.0f}%"}
-        },
-        "financial_performance": {
-            "currency": "EUR",
-            "fuel": {
-                "label": str_cfg["fuel"], "gross_pump": gross_pump, "net_ex_vat": net_price,
-                "excise_duty": comp["excise"], "co2_tax": comp["co2_tax"], "pure_energy_net": pure_energy
+        return {
+            "audit_metadata": {"timestamp": now.strftime("%Y-%m-%d %H:%M:%S"), "compliance_certification": "ISO 14083, CSRD, ViDA & EU-Maut-Ready", "explanation": str_cfg["audit_note"]},
+            "compliance_methodology": {
+                "fuel_pricing": {"method": str_cfg["fuel_desc"], "source": comp["fuel_src"]},
+                "infrastructure_toll": {"method": str_cfg["toll_desc"], "statutory_basis": comp["legal"]},
+                "sustainability_reporting": {"method": str_cfg["csrd_desc"], "standard": "ISO 14083 / GHG Protocol"},
+                "taxation_recovery": {"method": str_cfg["tax_desc"], "vat_regime": f"{(comp['vat']-1)*100:.0f}%"}
             },
-            "infrastructure": {
-                "label": str_cfg["toll"], "system": comp["toll_sys"], "base_toll": base_toll,
-                "special_transit_fees": special_fee, "adr_safety_fees": adr_fee
+            "financial_performance": {
+                "currency": "EUR",
+                "fuel": {"label": str_cfg["fuel"], "gross_pump": gross_pump, "net_ex_vat": net_price[0], "excise_duty": comp["excise"], "co2_tax": comp["co2_tax"], "pure_energy_net": pure_energy},
+                "infrastructure": {"label": str_cfg["toll"], "system": comp["toll_sys"], "base_toll": base_toll, "special_transit_fees": special_fee, "adr_safety_fees": adr_fee},
+                "recovery_potential": {"label": str_cfg["vat_reclaim"], "total_vat_claimable": vat_reclaimable, "net_net_operational_total": net_net_trip}
             },
-            "recovery_potential": {
-                "label": str_cfg["vat_reclaim"], "total_vat_claimable": vat_reclaimable,
-                "net_net_operational_total": net_net_trip
-            }
-        },
-        "environmental_csrd": {
-            "label": str_cfg["co2"], "total_co2_kg": round(scope1 + scope3, 2),
-            "breakdown_kg": {str_cfg["scope1"]: scope1, str_cfg["scope3"]: scope3}
-        },
-        "legal_notice": {
-            "legal_basis": comp["legal"], "disclaimer": str_cfg["disclaimer"]
+            "environmental_csrd": {"label": str_cfg["co2"], "total_co2_kg": round(scope1 + scope3, 2), "breakdown_kg": {str_cfg["scope1"]: scope1, str_cfg["scope3"]: scope3}},
+            "legal_notice": {"legal_basis": comp["legal"], "disclaimer": str_cfg["disclaimer"]}
         }
-    }
+    except Exception as e:
+        return {"error": "Audit Calculation Failed", "details": str(e)}
