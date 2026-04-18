@@ -70,8 +70,8 @@ COUNTRY_DATA = {
         "fuel_src": "MTS-K / Bundeskartellamt", "toll_sys": "LKW-Maut (Toll Collect)",
         "legal": "BFStrMG § 7, nEHS CO2-Preis Gesetz",
         "rates": {
-            "heavy": {"CO2_1": 0.354, "CO2_2": 0.332, "CO2_3": 0.311, "CO2_4": 0.205, "CO2_5": 0.000},
-            "mid": {"CO2_1": 0.302, "CO2_2": 0.285, "CO2_3": 0.268, "CO2_4": 0.175, "CO2_5": 0.000}
+            "heavy": {"CO2_1": 0.354, "CO2_2": 0.332, "CO2_3": 0.311, "CO2_4": 0.205, "CO2_5": 0.088},
+            "mid": {"CO2_1": 0.302, "CO2_2": 0.285, "CO2_3": 0.268, "CO2_4": 0.175, "CO2_5": 0.075}
         }
     },
     "AT": {
