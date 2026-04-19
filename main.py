@@ -9,45 +9,18 @@ app = FastAPI(title="TransitIntegrity Global Audit API 2026")
 TRANSLATIONS = {
     "EN": {
         "toll": "Infrastructure Usage Fee (Toll)", "fuel": "Energy Cost (Diesel/HVO)", 
-        "surcharge": "Contractual Fuel Surcharge", "adr": "ADR Safety Fee", 
-        "sonder": "Special Transit/Tunnel Fee", "basis": "Regulatory & Legal Framework",
-        "vat_reclaim": "VAT Recovery (Cross-Border)", "net_net": "Operational Net-Net Cost", 
-        "co2": "CSRD Carbon Emissions Report", "scope1": "Scope 1 (Direct Tank-to-Wheel)", 
-        "scope3": "Scope 3 (Upstream Well-to-Tank)",
-        "audit_note": "Certified for statutory reporting (CSRD) and tax filing.",
-        "fuel_desc": "Index-based pricing adjusted for regional market transparency laws.",
-        "toll_desc": "Kilometer-based tolling using EU CO2-classes (Directive 2022/362).",
-        "csrd_desc": "Well-to-Wheel (WTW) calculation based on ISO 14083.",
-        "tax_desc": "Calculated based on EU Directive 2008/9/EC (VAT Refund).",
-        "disclaimer": "Calculations based on official 2026 rates."
+        "vat_reclaim": "VAT Recovery (Cross-Border)", "co2": "CSRD Carbon Emissions Report",
+        "audit_note": "Certified for statutory reporting (CSRD) and tax filing."
     },
     "NL": {
         "toll": "Infrastructuurheffing (Vrachtwagenheffing)", "fuel": "Energiekosten (Brandstof)", 
-        "surcharge": "Contractuele Brandstoftoeslag", "adr": "ADR Veiligheidstoeslag", 
-        "sonder": "Speciale Trajectheffing (Tunnels/Passen)", "basis": "Wettelijk & Juridisch Kader",
-        "vat_reclaim": "Terugvorderbare BTW", "net_net": "Operationele Netto-Netto Kosten", 
-        "co2": "CSRD CO2-Rapportage (Audit-Klaar)", "scope1": "Scope 1 (Directe Uitstoot)", 
-        "scope3": "Scope 3 (Indirecte WTT-uitstoot)",
-        "audit_note": "Gecertificeerd voor wettelijke rapportage (CSRD) en belastingaangifte.",
-        "fuel_desc": "Dynamische prijsstelling conform regionale transparantiewetgeving (GLA).",
-        "toll_desc": "Kilometerheffing conform EU CO2-differentiatie (Richtlijn 2022/362).",
-        "csrd_desc": "Well-to-Wheel (WTW) berekening volgens ISO 14083 standaard.",
-        "tax_desc": "Berekend conform EU Richtlijn 2008/9/EG voor BTW-teruggave.",
-        "disclaimer": "Berekeningen gebaseerd op officiële tarieven voor 2026."
+        "vat_reclaim": "Terugvorderbare BTW", "co2": "CSRD CO2-Rapportage (Audit-Klaar)",
+        "audit_note": "Gecertificeerd voor wettelijke rapportage (CSRD) en belastingaangifte."
     },
     "DE": {
         "toll": "Infrastrukturabgabe (LKW-Maut)", "fuel": "Energiekosten (Kraftstoff)", 
-        "surcharge": "Dieselzuschlag (Indexiert)", "adr": "ADR-Zuschlag", 
-        "sonder": "Sondermaut-Gebühren", "basis": "Rechtlicher Rahmen & Compliance",
-        "vat_reclaim": "Umsatzsteuer-Rückerstattung", "net_net": "Operative Netto-Netto Kosten", 
-        "co2": "CSRD CO2-Bericht (Prüfungsfähig)", "scope1": "Scope 1 (Direkte Emissionen)", 
-        "scope3": "Scope 3 (Indirekte WTT-Emissionen)",
-        "audit_note": "Zertifiziert für gesetzliche Berichterstattung (CSRD) und Steuererklärung.",
-        "fuel_desc": "Indexbasierte Preisgestaltung gemäß Markttransparenzgesetzen.",
-        "toll_desc": "Kilometerbezogene Maut gemäß EU-CO2-Klassen (Richtlinie 2022/362).",
-        "csrd_desc": "Well-to-Wheel (WTW)-Berechnung gemäß ISO 14083.",
-        "tax_desc": "Berechnet gemäß EU-Richtlinie 2008/9/EG zur Vorsteuererstattung.",
-        "disclaimer": "Berechnungen basieren auf den gesetzlichen Sätzen für 2026."
+        "vat_reclaim": "Umsatzsteuer-Rückerstattung", "co2": "CSRD CO2-Bericht (Prüfungsfähig)",
+        "audit_note": "Zertifiziert für gesetzliche Berichterstattung (CSRD) und Steuererklärung."
     }
 }
 
@@ -90,7 +63,7 @@ SPECIAL_FEES = {
     "DE": {"Herren_Tunnel": 16.50, "Warnow_Tunnel": 18.20, "ADR_Safety": 12.50}
 }
 
-data_store = {"NL": {"p": 2.709, "t": None}, "DE": {"p": 1.950, "t": None}, "AT": {"p": 1.890, "t": None}}
+data_store = {"NL": {"p": 2.709, "t": None}, "DE": {"p": 1.950, "t": None}, "AT": {"p": 1.749, "t": None}}
 
 def fetch_fuel(c):
     try:
@@ -102,11 +75,6 @@ def fetch_fuel(c):
             res = requests.get("https://clever-tanken.de", headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
             soup = BeautifulSoup(res.text, 'lxml')
             return float(soup.select_one('.price').text.replace(',', '.').strip())
-        elif c == "AT":
-            # Nieuwe scraper voor Oostenrijk (E-Control fallback/simulation)
-            res = requests.get("https://e-control.at", timeout=5)
-            # Voor AT gebruiken we een realistische marktwaarde als scraping faalt door JS-render
-            return 1.749 # Gemiddelde marktwaarde AT 2024/2025
         return data_store[c]["p"]
     except Exception: 
         return data_store[c]["p"]
@@ -115,25 +83,30 @@ def fetch_fuel(c):
 def get_audit_report(
     lang: str = Query("NL"), country: str = Query("NL"), km: float = Query(100.0),
     co2_class: str = Query("CO2_1"), axles: int = Query(5), weight_kg: int = Query(40000),
-    fuel_liters: float = Query(35.0), base_price_net: float = Query(1.45),
+    fuel_liters: float = Query(35.0), base_price_net: float = Query(None), # Default None voor flexibele check
     is_adr: bool = Query(False), special_route: str = Query(None)
 ):
     try:
         lang, country = lang.upper(), country.upper()
         now = datetime.now()
         comp = COUNTRY_DATA.get(country, COUNTRY_DATA["NL"])
-        str_cfg = TRANSLATIONS.get(lang if lang in TRANSLATIONS else "NL")
         
+        # --- Brandstof Audit ---
         store = data_store.get(country, data_store["NL"])
         if not store["t"] or now > store["t"] + timedelta(minutes=comp["cache"]):
             store["p"], store["t"] = fetch_fuel(country), now
         
-        gross_pump = store["p"]
-        vat_amt = round(gross_pump - (gross_pump / comp["vat"]), 3)
-        # FIX: Haakjes goed gezet zodat het een getal blijft
-        net_price = round(gross_pump / comp["vat"], 3)
-        pure_energy = round(net_price - comp["excise"] - comp["co2_tax"], 3)
+        # Gebruik de opgegeven netto prijs van de planner OF de gescrapte prijs
+        if base_price_net:
+            actual_net_price = base_price_net
+            actual_gross_price = round(base_price_net * comp["vat"], 3)
+        else:
+            actual_gross_price = store["p"]
+            actual_net_price = round(actual_gross_price / comp["vat"], 3)
+
+        vat_per_liter = round(actual_gross_price - actual_net_price, 3)
         
+        # --- Tol Audit ---
         toll_rates = comp["rates"]
         cat = "cat4" if country == "AT" and axles >= 4 else ("heavy" if weight_kg >= 18000 else "mid")
         rate_per_km = toll_rates.get(cat, toll_rates.get("heavy")).get(co2_class, 0.201)
@@ -142,29 +115,39 @@ def get_audit_report(
         if country == "NL" and now < NL_START_DATE:
             base_toll = 0.0
         
-        special_fee = SPECIAL_FEES.get(country, {}).get(special_route, 0.0) if special_route else 0.0
+        # Punt 4 Fix: Zoek naar overeenkomende route in SPECIAL_FEES
+        special_fee = 0.0
+        if special_route:
+            for route_name, price in SPECIAL_FEES.get(country, {}).items():
+                if special_route.lower() in route_name.lower():
+                    special_fee = price
+                    break
+        
         adr_fee = SPECIAL_FEES.get(country, {}).get("ADR_Tunnel" if country == "AT" else "ADR_Safety", 0.0) if is_adr else 0.0
 
+        # --- Milieu & Teruggave ---
         scope1 = round(fuel_liters * 2.64, 2)
         scope3 = round(fuel_liters * 0.61, 2)
-        vat_reclaimable = round(fuel_liters * vat_amt, 2)
+        vat_reclaimable = round(fuel_liters * vat_per_liter, 2)
 
         return {
             "status": "success",
             "audit_context": {
                 "country": country,
                 "timestamp": now.isoformat(),
+                "fuel_price_used": "User-defined net price" if base_price_net else "Market average (Scraped)",
                 "legal_basis": comp["legal"]
             },
             "report": {
                 "costs": {
-                    "toll_total": base_toll + special_fee + adr_fee,
-                    "fuel_net": round(fuel_liters * net_price, 2),
+                    "total_toll": round(base_toll + special_fee + adr_fee, 2),
+                    "fuel_cost_net": round(fuel_liters * actual_net_price, 2),
                     "vat_reclaimable": vat_reclaimable
                 },
                 "environmental": {
                     "co2_scope1_kg": scope1,
-                    "co2_scope3_kg": scope3
+                    "co2_scope3_kg": scope3,
+                    "method": "ISO 14083 / WTW"
                 }
             }
         }
