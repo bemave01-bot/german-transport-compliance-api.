@@ -11,24 +11,24 @@ This specialized audit and verification tool is designed for carriers, planners,
 <details>
 <summary>🇳🇱 <b>Netherlands (NL)</b></summary>
 
-- **Logic:** 2026 Truck Levy (Vrachtwagenheffing).
-- **Features:** CO2-differentiation, United Consumers fuel-audit.
-- **Compliance:** ISO 14083:2023 & CSRD Scope 1/3.
+- **Logic:** 2026 Truck Levy (Vrachtwagenheffing) calculation.
+- **Features:** CO2-differentiation and United Consumers fuel-audit integration.
+- **Compliance:** ISO 14083:2023 & CSRD Scope 1/3 reporting.
 </details>
 
 <details>
 <summary>🇩🇪 <b>Germany (DE)</b></summary>
 
-- **Logic:** Toll Collect LKW-Maut 2026.
-- **Features:** CO2-class verification, MTS-K fuel indexing.
-- **Compliance:** ISO 14083:2023 & VECTO-standards.
+- **Logic:** Toll Collect LKW-Maut 2026 pricing.
+- **Features:** Official CO2-class verification and MTS-K fuel indexing.
+- **Compliance:** ISO 14083:2023 & VECTO-standard validation.
 </details>
 
 <details>
 <summary>🇦🇹 <b>Austria (AT)</b></summary>
 
-- **Logic:** ASFINAG GO-Maut.
-- **Features:** Axle-based tolling, E-Control market-audit.
+- **Logic:** ASFINAG GO-Maut (axle-based).
+- **Features:** E-Control market-audit for fuel pricing.
 - **Compliance:** EU Directive 2022/362.
 </details>
 
@@ -59,21 +59,30 @@ This tool is designed as a **Post-Trip Audit** instrument. For international tri
 <details>
 <summary>🇳🇱 <b>Nederlandse Uitleg (Dutch)</b></summary>
 
-**De ultieme Fiscale & ISO-Compliante Audit Tool.**
+**De ultieme Fiscale & ISO-Compliante Audit Tool voor Nederland.**
 Ontworpen voor transporteurs en planners om ritten fiscaal en milieutechnisch te valideren.
-- **Audit-Klaar:** Conform ISO 14083:2023.
-- **CSRD:** Automatische uitsplitsing Scope 1 & 3.
-- **Maut 2026:** Inclusief Nederlandse Vrachtwagenheffing en Duitse LKW-Maut logica.
+- **Vrachtwagenheffing 2026:** Volledige ondersteuning voor de nieuwe Nederlandse tol-logica en CO2-klassen.
+- **Brandstof Audit:** Validatie van inkoopcijfers via de United Consumers prijsindex.
+- **Compliance:** Automatische rapportage conform ISO 14083:2023 voor CSRD-doeleinden.
 </details>
 
 <details>
 <summary>🇩🇪 <b>Deutsche Erklärung (German)</b></summary>
 
-**Das ultimative steuerliche & ISO-konforme Audit-Tool.**
-Validieren Sie Fahrten steuerlich und ökologisch nach der Gesetzgebung von 2026.
-- **Steuerliche Präzision:** Erstattungsfähige MwSt. und Mineralölsteuer.
-- **ISO-Konform:** Vollständige Berichterstattung nach ISO 14083:2023.
-- **Maut-Logik:** Inklusive aktueller CO2-Differenzierung für DE, AT und NL.
+**Das ultimative steuerliche & ISO-konforme Audit-Tool für Deutschland.**
+Prüfen Sie Ihre Fahrten in Deutschland auf steuerliche und ökologische Konformität nach der Gesetzgebung 2026.
+- **LKW-Maut 2026:** Inklusive Toll Collect CO2-Differenzierung und aktueller Tarife.
+- **MTS-K Validierung:** Kraftstoff-Audit basierend auf offiziellen deutschen Marktindizes.
+- **Revisionssicher:** Erfüllt alle Anforderungen für ISO 14083 und CSRD-Reporting.
+</details>
+
+<details>
+<summary>🇦🇹 <b>Österreichische Erklärung (Austrian German)</b></summary>
+
+**Prüfung und Validierung für den österreichischen Transportsektor.**
+- **GO-Maut:** Korrekte Abrechnung basierend auf Achsklassen und ASFINAG-Tarifen.
+- **Markt-Audit:** Kraftstoffpreisvalidierung über E-Control Daten.
+- **Berichterstattung:** ISO-konforme CO2-Zertifikate für Ihre Auftraggeber.
 </details>
 
 ---
