@@ -14,7 +14,7 @@ TRANSLATIONS = {
         "instruction": "HINWEIS: Voer voor internationale ritten per land een aparte berekening uit.",
         "toll": "Totale Tol (Infrastructuurheffing)", 
         "fuel": "Netto Brandstofkosten", 
-        "vat_reclaim": "Terugvorderbare BTW",
+        "vat_reclaim": "Terugvorderbare Belastingen (BTW + Accijns)",
         "co2": "CO2-Uitstoot Rapportage",
         "compliance": "Dit rapport is opgesteld conform ISO 14083:2023 en geschikt voor CSRD (Scope 1 & 3) audit-doeleinden."
     },
@@ -22,7 +22,7 @@ TRANSLATIONS = {
         "instruction": "HINWEIS: Führen Sie für internationale Fahrten pro Land eine separate Berechnung durch.",
         "toll": "Gesamtmaut (Infrastrukturabgabe)", 
         "fuel": "Netto-Kraftstoffkosten", 
-        "vat_reclaim": "Erstattungsfähige MwSt.",
+        "vat_reclaim": "Steuerrückerstattung (MwSt. + Mineralölsteuer)",
         "co2": "CO2-Emissionsbericht",
         "compliance": "Dieser Bericht wurde gemäß ISO 14083:2023 erstellt und ist für CSRD (Scope 1 & 3) Audits geeignet."
     }
@@ -68,12 +68,18 @@ def get_audit_report(
         if not store["t"] or now > store["t"] + timedelta(minutes=comp["cache"]):
             store["p"], store["t"] = fetch_fuel(country), now
         
+        # --- BEREKENINGEN ---
         actual_net_price = base_price_net if base_price_net else round(store["p"] / comp["vat"], 3)
         vat_per_liter = round((actual_net_price * comp["vat"]) - actual_net_price, 3)
+        
+        # Oostenrijkse accijnsteruggave (Mineralölsteuer-Rückvergütung) ca. € 0,082 per liter
+        at_refund_per_liter = 0.082 if country == "AT" else 0.0
+        total_reclaimable = round(fuel_liters * (vat_per_liter + at_refund_per_liter), 2)
         
         cat = "cat4" if country == "AT" and axles >= 4 else ("heavy" if weight_kg >= 18000 else "mid")
         rate_per_km = comp["rates"].get(cat, comp["rates"].get("heavy")).get(co2_class, 0.201)
         base_toll = round(km * rate_per_km, 2)
+        
         if country == "NL" and now < datetime(2026, 7, 1): base_toll = 0.0
 
         total_co2 = round(fuel_liters * 3.25, 2)
@@ -89,7 +95,12 @@ def get_audit_report(
             "results": {
                 txt["toll"]: round(base_toll + (25.0 if is_adr and country == "AT" else 0.0), 2),
                 txt["fuel"]: round(fuel_liters * actual_net_price, 2),
-                txt["vat_reclaim"]: round(fuel_liters * vat_per_liter, 2),
+                txt["vat_reclaim"]: total_reclaimable,
+                "audit_details": {
+                    "currency": "EUR",
+                    "vat_refund": round(fuel_liters * vat_per_liter, 2),
+                    "at_mineraloelsteuer_refund": round(fuel_liters * at_refund_per_liter, 2) if country == "AT" else 0.0
+                },
                 txt["co2"]: f"{total_co2} kg CO2e",
                 "breakdown": {
                     "Scope 1 (Direct)": f"{round(total_co2 * 0.81, 2)} kg",
@@ -103,10 +114,8 @@ def get_audit_report(
 # --- 3. APIFY ACTOR LOGIC ---
 async def main():
     async with Actor:
-        # Haal input op van de Apify UI
         actor_input = await Actor.get_input() or {}
         
-        # Voer de berekening uit
         audit_results = get_audit_report(
             lang=actor_input.get("lang", "NL"),
             country=actor_input.get("country", "NL"),
@@ -119,12 +128,10 @@ async def main():
             is_adr=bool(actor_input.get("is_adr", False))
         )
         
-        # Sla resultaten op in de Apify Dataset
         await Actor.push_data(audit_results)
         print("Audit succesvol uitgevoerd en data opgeslagen.")
 
 if __name__ == "__main__":
-    # Check of we op Apify draaien of lokaal/Render
     if os.environ.get("APIFY_IS_AT_HOME"):
         asyncio.run(main())
     else:
