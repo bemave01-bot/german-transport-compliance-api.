@@ -2,6 +2,9 @@ import requests
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, Query
 from datetime import datetime, timedelta
+import os
+import asyncio
+from apify import Actor
 
 app = FastAPI(title="TransitIntegrity Global Audit API 2026")
 
@@ -26,16 +29,10 @@ TRANSLATIONS = {
 }
 
 # --- 2. FISCALE & INFRASTRUCTUUR DATA 2026 ---
-# (Data blijft hetzelfde zoals eerder vastgesteld)
 COUNTRY_DATA = {
     "NL": {"vat": 1.21, "excise": 0.552, "co2_tax": 0.000, "cache": 720, "rates": {"heavy": {"CO2_1": 0.201, "CO2_2": 0.183, "CO2_3": 0.165, "CO2_4": 0.105, "CO2_5": 0.038}, "mid": {"CO2_1": 0.182, "CO2_2": 0.165, "CO2_3": 0.148, "CO2_4": 0.095, "CO2_5": 0.037}}},
     "DE": {"vat": 1.19, "excise": 0.470, "co2_tax": 0.185, "cache": 5, "rates": {"heavy": {"CO2_1": 0.354, "CO2_2": 0.332, "CO2_3": 0.311, "CO2_4": 0.205, "CO2_5": 0.088}, "mid": {"CO2_1": 0.302, "CO2_2": 0.285, "CO2_3": 0.268, "CO2_4": 0.175, "CO2_5": 0.075}}},
     "AT": {"vat": 1.20, "excise": 0.397, "co2_tax": 0.152, "cache": 45, "rates": {"cat4": {"CO2_1": 0.5724, "CO2_2": 0.5657, "CO2_3": 0.5501, "CO2_4": 0.4200, "CO2_5": 0.1189}, "cat3": {"CO2_1": 0.3842, "CO2_2": 0.3780, "CO2_3": 0.3650, "CO2_4": 0.2800, "CO2_5": 0.0850}}}
-}
-
-SPECIAL_FEES = {
-    "AT": {"Brenner_A13": 115.50, "Tauern_A10": 92.00, "Arlberg_S16": 88.00, "ADR_Tunnel": 25.00},
-    "DE": {"Herren_Tunnel": 16.50, "Warnow_Tunnel": 18.20, "ADR_Safety": 12.50}
 }
 
 data_store = {"NL": {"p": 2.709, "t": None}, "DE": {"p": 1.950, "t": None}, "AT": {"p": 1.749, "t": None}}
@@ -55,10 +52,10 @@ def fetch_fuel(c):
 
 @app.get("/api/v1/transport/full-audit-report")
 def get_audit_report(
-    lang: str = Query("NL"), country: str = Query("NL"), km: float = Query(100.0),
-    co2_class: str = Query("CO2_1"), axles: int = Query(5), weight_kg: int = Query(40000),
-    fuel_liters: float = Query(35.0), base_price_net: float = Query(None),
-    is_adr: bool = Query(False), special_route: str = Query(None)
+    lang: str = "NL", country: str = "NL", km: float = 100.0,
+    co2_class: str = "CO2_1", axles: int = 5, weight_kg: int = 40000,
+    fuel_liters: float = 35.0, base_price_net: float = None,
+    is_adr: bool = False, special_route: str = None
 ):
     try:
         lang, country = lang.upper(), country.upper()
@@ -67,10 +64,10 @@ def get_audit_report(
         comp = COUNTRY_DATA.get(country, COUNTRY_DATA["NL"])
         now = datetime.now()
 
-        # 1. Brandstof & Tol Logica (Blijft hetzelfde)
         store = data_store.get(country, data_store["NL"])
         if not store["t"] or now > store["t"] + timedelta(minutes=comp["cache"]):
             store["p"], store["t"] = fetch_fuel(country), now
+        
         actual_net_price = base_price_net if base_price_net else round(store["p"] / comp["vat"], 3)
         vat_per_liter = round((actual_net_price * comp["vat"]) - actual_net_price, 3)
         
@@ -79,8 +76,6 @@ def get_audit_report(
         base_toll = round(km * rate_per_km, 2)
         if country == "NL" and now < datetime(2026, 7, 1): base_toll = 0.0
 
-        # 2. Compliance Resultaten (Scope 1 & 3)
-        # WTW (Well-to-Wheel) factor voor diesel is gemiddeld 3.25 kg CO2 per liter
         total_co2 = round(fuel_liters * 3.25, 2)
 
         return {
@@ -104,3 +99,34 @@ def get_audit_report(
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+# --- 3. APIFY ACTOR LOGIC ---
+async def main():
+    async with Actor:
+        # Haal input op van de Apify UI
+        actor_input = await Actor.get_input() or {}
+        
+        # Voer de berekening uit
+        audit_results = get_audit_report(
+            lang=actor_input.get("lang", "NL"),
+            country=actor_input.get("country", "NL"),
+            km=float(actor_input.get("km", 100.0)),
+            co2_class=actor_input.get("co2_class", "CO2_1"),
+            axles=int(actor_input.get("axles", 5)),
+            weight_kg=int(actor_input.get("weight_kg", 40000)),
+            fuel_liters=float(actor_input.get("fuel_liters", 35.0)),
+            base_price_net=actor_input.get("base_price_net"),
+            is_adr=bool(actor_input.get("is_adr", False))
+        )
+        
+        # Sla resultaten op in de Apify Dataset
+        await Actor.push_data(audit_results)
+        print("Audit succesvol uitgevoerd en data opgeslagen.")
+
+if __name__ == "__main__":
+    # Check of we op Apify draaien of lokaal/Render
+    if os.environ.get("APIFY_IS_AT_HOME"):
+        asyncio.run(main())
+    else:
+        import uvicorn
+        uvicorn.run(app, host="0.0.0.0", port=8000)
