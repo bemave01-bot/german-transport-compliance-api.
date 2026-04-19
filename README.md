@@ -28,8 +28,8 @@ This specialized audit and verification tool is designed for carriers, planners,
 <summary>🇦🇹 <b>Austria (AT)</b></summary>
 
 - **Logic:** ASFINAG GO-Maut (axle-based).
-- **Features:** E-Control market-audit for fuel pricing.
-- **Compliance:** EU Directive 2022/362.
+- **Features:** E-Control market-audit and **Mineralölsteuer-Rückvergütung** (Fuel tax refund calculation).
+- **Compliance:** EU Directive 2022/362 and national fiscal recovery standards.
 </details>
 
 <details>
@@ -43,7 +43,7 @@ We are currently validating the fiscal logic for Poland, Italy, France, Spain, a
 ## 💎 Key Value Proposition
 *   **Audit-Ready:** Fully compliant with the **ISO 14083:2023** standard for transport emissions.
 *   **CSRD & ESG Reporting:** Automatic breakdown into **Scope 1 and Scope 3** emissions (Well-to-Wheel).
-*   **Fiscal Precision:** Calculation of reclaimable VAT and fuel excise duties based on real-time market prices.
+*   **Fiscal Precision:** Calculation of reclaimable VAT and fuel excise duties (e.g., AT Diesel refund) based on real-time market prices.
 *   **Future-Proof:** Built for the 2026 toll reforms across the EU.
 
 ## 🛠 How to Use
@@ -81,8 +81,9 @@ Prüfen Sie Ihre Fahrten in Deutschland auf steuerliche und ökologische Konform
 
 **Prüfung und Validierung für den österreichischen Transportsektor.**
 - **GO-Maut:** Korrekte Abrechnung basierend auf Achsklassen und ASFINAG-Tarifen.
-- **Markt-Audit:** Kraftstoffpreisvalidierung über E-Control Daten.
-- **Berichterstattung:** ISO-konforme CO2-Zertifikate für Ihre Auftraggeber.
+- **Mineralölsteuer-Rückvergütung:** Automatische Berechnung der erstattungsfähigen Dieselsteuerbeträge.
+- **Markt-Audit:** Kraftstoffprijsvalidierung über E-Control Daten.
+- **Berichterstattung:** ISO-konforme CO2-Zertifikate voor uw opdrachtgevers.
 </details>
 
 ---
