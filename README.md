@@ -1,90 +1,104 @@
-# 🚛 TransitIntegrity Global Audit Actor (2026 Ready)
+# 🚛 EU Truck Toll Calculator — ISO 14083, CSRD (NL, DE, AT)
 
-**The ultimate Fiscal & ISO-compliant audit tool for the European transport sector.**
-
-This specialized audit and verification tool is designed for carriers, planners, and accountants to validate trips across Europe. It ensures full fiscal and environmental compliance according to 2026 legislation.
+**Calculate truck toll costs, VAT reclaim, CO₂ emissions and fuel audit reports per country. ISO 14083:2023 & CSRD compliant. Built for carriers, accountants and logistics planners.**
 
 ---
 
-## 🌍 Supported Countries (Click to expand)
+## ✅ What This Actor Does
 
-<details>
-<summary>🇳🇱 <b>Netherlands (NL)</b></summary>
+Enter your trip details (kilometers, fuel, vehicle weight, CO2 class) and instantly receive a professional audit report including:
 
-- **Logic:** 2026 Truck Levy (Vrachtwagenheffing) calculation.
-- **Features:** CO2-differentiation and United Consumers fuel-audit integration.
-- **Compliance:** ISO 14083:2023 & CSRD Scope 1/3 reporting.
-</details>
+- 🛣️ **Toll costs** — LKW-Maut (DE), Vrachtwagenheffing (NL), GO-Maut (AT)
+- ⛽ **Fuel cost calculation** — with live diesel prices per country
+- 💰 **VAT reclaim** — reclaimable VAT and excise duties per country
+- 🌍 **CO2 emissions** — Scope 1 & Scope 3 (Well-to-Wheel, ISO 14083:2023)
+- 📋 **CSRD audit report** — ready for ESG reporting
 
-<details>
-<summary>🇩🇪 <b>Germany (DE)</b></summary>
-
-- **Logic:** Toll Collect LKW-Maut 2026 pricing.
-- **Features:** Official CO2-class verification and MTS-K fuel indexing.
-- **Compliance:** ISO 14083:2023 & VECTO-standard validation.
-</details>
-
-<details>
-<summary>🇦🇹 <b>Austria (AT)</b></summary>
-
-- **Logic:** ASFINAG GO-Maut (axle-based).
-- **Features:** E-Control market-audit and **Mineralölsteuer-Rückvergütung** (Fuel tax refund calculation).
-- **Compliance:** EU Directive 2022/362 and national fiscal recovery standards.
-</details>
-
-<details>
-<summary>🇵🇱 🇮🇹 🇫🇷 🇪🇸 🇨🇭 <b>More coming soon...</b></summary>
-
-We are currently validating the fiscal logic for Poland, Italy, France, Spain, and Switzerland. Contact us for early access.
-</details>
+> ⚠️ **Important:** For international trips, run the Actor **separately per country** for accurate results.
 
 ---
 
-## 💎 Key Value Proposition
-*   **Audit-Ready:** Fully compliant with the **ISO 14083:2023** standard for transport emissions.
-*   **CSRD & ESG Reporting:** Automatic breakdown into **Scope 1 and Scope 3** emissions (Well-to-Wheel).
-*   **Fiscal Precision:** Calculation of reclaimable VAT and fuel excise duties (e.g., AT Diesel refund) based on real-time market prices.
-*   **Future-Proof:** Built for the 2026 toll reforms across the EU.
+## 🌍 Supported Countries
 
-## 🛠 How to Use
-This tool is designed as a **Post-Trip Audit** instrument. For international trips, please perform the calculation **separately per country**:
-1. Select the country of the completed journey.
-2. Input the **Toll-kilometers**, liters, and weight.
-3. Receive an official compliance report for your administration.
+| Country | Toll Logic | Fuel Source | Special Feature |
+|---|---|---|---|
+| 🇳🇱 Netherlands | Vrachtwagenheffing 2026 | United Consumers | CO2-class differentiation |
+| 🇩🇪 Germany | Toll Collect LKW-Maut 2026 | MTS-K index | CO2 surcharge included |
+| 🇦🇹 Austria | ASFINAG GO-Maut (axle-based) | E-Control | Mineralölsteuer-Rückvergütung |
+
+🇵🇱 🇮🇹 🇫🇷 🇪🇸 🇨🇭 **More countries coming soon.**
 
 ---
 
-## 📑 Local Language Explanations (Click to expand)
+## 📥 Input Fields
 
-<details>
-<summary>🇳🇱 <b>Nederlandse Uitleg (Dutch)</b></summary>
-
-**De ultieme Fiscale & ISO-Compliante Audit Tool voor Nederland.**
-Ontworpen voor transporteurs en planners om ritten fiscaal en milieutechnisch te valideren.
-- **Vrachtwagenheffing 2026:** Volledige ondersteuning voor de nieuwe Nederlandse tol-logica en CO2-klassen.
-- **Brandstof Audit:** Validatie van inkoopcijfers via de United Consumers prijsindex.
-- **Compliance:** Automatische rapportage conform ISO 14083:2023 voor CSRD-doeleinden.
-</details>
-
-<details>
-<summary>🇩🇪 <b>Deutsche Erklärung (German)</b></summary>
-
-**Das ultimative steuerliche & ISO-konforme Audit-Tool für Deutschland.**
-Prüfen Sie Ihre Fahrten in Deutschland auf steuerliche und ökologische Konformität nach der Gesetzgebung 2026.
-- **LKW-Maut 2026:** Inklusive Toll Collect CO2-Differenzierung und aktueller Tarife.
-- **MTS-K Validierung:** Kraftstoff-Audit basierend auf offiziellen deutschen Marktindizes.
-- **Revisionssicher:** Erfüllt alle Anforderungen für ISO 14083 und CSRD-Reporting.
-</details>
-
-<details>
-<summary>🇦🇹 <b>Österreichische Erklärung (Austrian German)</b></summary>
-
-**Prüfung und Validierung für den österreichischen Transportsektor.**
-- **GO-Maut:** Korrekte Abrechnung basierend auf Achsklassen und ASFINAG-Tarifen.
-- **Mineralölsteuer-Rückvergütung:** Automatische Berechnung der erstattungsfähigen Dieselsteuerbeträge.
-- **Markt-Audit:** Kraftstoffprijsvalidierung über E-Control Daten.
-- **Berichterstattung:** ISO-konforme CO2-Zertifikate voor uw opdrachtgevers.
-</details>
+| Field | Type | Description | Default |
+|---|---|---|---|
+| `country` | string | Country: NL, DE or AT | DE |
+| `lang` | string | Report language: EN, NL or DE | EN |
+| `km` | number | Kilometers driven in this country | 250 |
+| `co2_class` | string | CO2 emission class: CO2_1 (Euro I) to CO2_5 (Euro VI) | CO2_3 |
+| `axles` | integer | Number of axles (2–10) | 5 |
+| `weight_kg` | integer | Vehicle weight in kg (3,500–60,000) | 40000 |
+| `fuel_liters` | number | Diesel consumed in liters | 87.5 |
+| `base_price_net` | number | Optional: your net diesel price per liter | auto |
+| `is_adr` | boolean | ADR dangerous goods (adds AT surcharge) | false |
 
 ---
-*Developed for TransitIntegrity Global Audit API.*
+
+## 📤 Output Example
+
+```json
+{
+  "COMPLIANCE_CERTIFICATE": {
+    "standard": "ISO 14083:2023 Compliant",
+    "framework": "CSRD / ESG Framework Ready",
+    "methodology": "Well-to-Wheel (WTW) Analysis"
+  },
+  "results": {
+    "Total Toll (Infrastructure Charge)": 83.25,
+    "Net Fuel Costs": 145.60,
+    "Reclaimable Taxes (VAT + Excise)": 28.43,
+    "CO2 Emissions Report": "284.38 kg CO2e",
+    "breakdown": {
+      "Scope 1 (Direct)": "230.35 kg",
+      "Scope 3 (Upstream)": "54.03 kg"
+    }
+  }
+}
+```
+
+---
+
+## 💎 Key Features
+
+- **ISO 14083:2023 compliant** — accepted for official transport emissions audits
+- **CSRD & ESG ready** — automatic Scope 1 and Scope 3 breakdown
+- **Live fuel prices** — real-time diesel prices per country with fallback
+- **VAT & excise reclaim** — including Austrian Mineralölsteuer-Rückvergütung
+- **Multilingual output** — reports in English, Dutch or German
+- **Input validation** — clear error messages for invalid inputs
+- **2026 toll rates** — updated for latest EU toll reforms
+
+---
+
+## 🛠 How To Use
+
+1. Select your **country** (run separately per country for international trips)
+2. Enter **kilometers**, **fuel liters** and **vehicle details**
+3. Choose your **CO2 emission class** (check your vehicle registration)
+4. Run the Actor and download your **audit report**
+
+---
+
+## 🇳🇱 Nederlandse uitleg
+
+Bereken tolkosten, BTW-teruggave en CO₂-uitstoot per rit. Volledig conform ISO 14083:2023 en geschikt voor CSRD-rapportage. Voer internationale ritten per land in voor nauwkeurige resultaten.
+
+## 🇩🇪 Deutsche Erklärung
+
+Berechnen Sie LKW-Maut, MwSt.-Erstattung und CO₂-Emissionen pro Fahrt. ISO 14083:2023-konform und CSRD-ready. Für internationale Fahrten bitte pro Land separat ausführen.
+
+---
+
+*Maintained by Audit Logistics | Updated for 2026 EU toll regulations*
