@@ -1,9 +1,0 @@
-{
-  "actorSpecification": 1,
-  "name": "eu-transport-auditor",
-  "title": "EU Truck Toll Calculator — ISO 14083, CSRD (NL, DE, AT)",
-  "description": "Calculate truck toll, VAT reclaim, fuel costs and CO₂ emissions per country.",
-  "version": "1.0",
-  "input": {"schemaVersion": 1, "inputSchemaFile": "./INPUT_SCHEMA.json"},
-  "dockerfile": "../Dockerfile"
-}
