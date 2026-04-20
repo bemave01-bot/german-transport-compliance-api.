@@ -1,0 +1,6 @@
+{
+  "actorSpecification": 1,
+  "name": "eu-transport-auditor",
+  "version": "1.0",
+  "dockerfile": "../Dockerfile"
+}
